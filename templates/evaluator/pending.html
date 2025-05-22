@@ -1,0 +1,231 @@
+{% extends 'evaluator/base.html' %}
+
+{% block title %}Analyse en cours...{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+        <div class="card text-center">
+            <div class="card-body py-5">
+                {% if evaluation.status == 'pending' %}
+                    <div class="loading-spinner mb-4"></div>
+                    <h2 class="text-primary mb-3">🔄 Analyse en cours...</h2>
+                    <p class="lead text-muted mb-4">
+                        Nous analysons votre code Python. Cette opération peut prendre quelques minutes.
+                    </p>
+                {% elif evaluation.status == 'failed' %}
+                    <div class="mb-4">
+                        <i class="fas fa-exclamation-triangle fa-4x text-danger"></i>
+                    </div>
+                    <h2 class="text-danger mb-3">❌ Analyse échouée</h2>
+                    <p class="lead text-muted mb-4">
+                        Une erreur s'est produite lors de l'analyse de votre code.
+                    </p>
+                    {% if evaluation.error_message %}
+                        <div class="alert alert-danger text-start">
+                            <strong>Détails de l'erreur:</strong><br>
+                            {{ evaluation.error_message }}
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                <div class="row mt-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-2">Source</h6>
+                            <div class="fw-bold">
+                                {% if evaluation.source_type == 'github' %}
+                                    <i class="fab fa-github me-2"></i>Dépôt GitHub
+                                {% else %}
+                                    <i class="fas fa-file-archive me-2"></i>Fichier ZIP
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3">
+                            <h6 class="text-muted mb-2">Statut</h6>
+                            <div class="fw-bold">
+                                {% if evaluation.status == 'pending' %}
+                                    <span class="badge bg-warning">En cours</span>
+                                {% elif evaluation.status == 'failed' %}
+                                    <span class="badge bg-danger">Échoué</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if evaluation.status == 'pending' %}
+                    <div class="progress mt-4 mb-4">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: 60%" 
+                             id="progress-bar">
+                        </div>
+                    </div>
+
+                    <p class="text-muted small mb-4" id="status-message">
+                        Analyse du code en cours... Veuillez patienter.
+                    </p>
+                {% endif %}
+
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="{% url 'evaluator:index' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Nouvelle Analyse
+                    </a>
+                    
+                    {% if evaluation.status == 'pending' %}
+                        <button class="btn btn-primary" onclick="checkStatus()" id="refresh-btn">
+                            <i class="fas fa-sync-alt me-2"></i>Actualiser
+                        </button>
+                    {% endif %}
+                </div>
+
+                {% if evaluation.source_type == 'github' %}
+                    <div class="mt-4 pt-3 border-top">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            URL: {{ evaluation.source_path }}
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if evaluation.status == 'pending' %}
+<!-- Section d'informations pendant l'attente -->
+<div class="row justify-content-center mt-5">
+    <div class="col-lg-8 col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">📋 Métriques analysées</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-chart-line fa-2x text-primary"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Indice de Maintenabilité</h6>
+                                <small class="text-muted">Mesure la facilité de maintenance du code</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-bug fa-2x text-warning"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Probabilité de Bugs</h6>
+                                <small class="text-muted">Estimation du risque d'erreurs</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-cube fa-2x text-info"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Volume de Halstead</h6>
+                                <small class="text-muted">Complexité du programme</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-sitemap fa-2x text-success"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Complexité Cyclomatique</h6>
+                                <small class="text-muted">Nombre de chemins d'exécution</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if evaluation.status == 'pending' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh pour vérifier le statut
+    let checkInterval;
+    let progress = 60; // Commencer à 60% comme dans la barre de progression
+
+    function checkStatus() {
+        const refreshBtn = document.getElementById('refresh-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const statusMessage = document.getElementById('status-message');
+        
+        // Désactiver le bouton temporairement
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Vérification...';
+        
+        fetch(`{% url 'evaluator:check_status' evaluation.id %}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'completed') {
+                    progressBar.style.width = '100%';
+                    statusMessage.textContent = 'Analyse terminée! Redirection...';
+                    
+                    setTimeout(() => {
+                        window.location.href = `{% url 'evaluator:dashboard' evaluation.id %}`;
+                    }, 1500);
+                    
+                } else if (data.status === 'failed') {
+                    clearInterval(checkInterval);
+                    location.reload(); // Recharger pour afficher l'erreur
+                    
+                } else {
+                    // Toujours en cours
+                    progress = Math.min(progress + 5, 95);
+                    progressBar.style.width = progress + '%';
+                    statusMessage.textContent = 'Analyse du code en cours... Veuillez patienter.';
+                    
+                    // Réactiver le bouton
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Actualiser';
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de la vérification:', error);
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Actualiser';
+                statusMessage.textContent = 'Erreur de connexion. Cliquez sur Actualiser.';
+            });
+    }
+    
+    // Vérification automatique toutes les 5 secondes
+    checkInterval = setInterval(checkStatus, 5000);
+    
+    // Arrêter la vérification automatique si l'utilisateur quitte la page
+    window.addEventListener('beforeunload', function() {
+        if (checkInterval) {
+            clearInterval(checkInterval);
+        }
+    });
+    
+    // Fonction globale pour le bouton
+    window.checkStatus = checkStatus;
+});
+</script>
+{% endif %}
+{% endblock %}

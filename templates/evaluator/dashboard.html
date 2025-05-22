@@ -1,0 +1,381 @@
+{% extends 'evaluator/base.html' %}
+{% load math_filters %}
+{% block title %}Dashboard - Résultats d'Analyse{% endblock %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="text-primary mb-2">📊 Dashboard d'Analyse</h2>
+                <p class="text-muted">
+                    {% if evaluation.source_type == 'github' %}
+                        <i class="fab fa-github me-2"></i>{{ evaluation.source_path }}
+                    {% else %}
+                        <i class="fas fa-file-archive me-2"></i>Fichier ZIP uploadé
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'evaluator:index' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Nouvelle Analyse
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Métriques principales -->
+<div class="row mb-5">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="metric-card">
+            <div class="metric-value">{{ evaluation.maintainability_index|floatformat:1 }}</div>
+            <div class="metric-label">Maintainability Index</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="metric-card">
+            <div class="metric-value">{{ evaluation.bugs_probability|floatformat:2 }}</div>
+            <div class="metric-label">Bugs Probability</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="metric-card">
+            <div class="metric-value">{{ evaluation.halstead_volume|floatformat:0 }}</div>
+            <div class="metric-label">Halstead Volume</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="metric-card">
+            <div class="metric-value">{{ evaluation.lcom4|floatformat:2 }}</div>
+            <div class="metric-label">LCOM4</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="metric-card">
+            <div class="metric-value">{{ evaluation.complexity|floatformat:1 }}</div>
+            <div class="metric-label">Complexity</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="metric-card">
+            <div class="metric-value">{{ evaluation.pylint_score|floatformat:1 }}/10</div>
+            <div class="metric-label">Pylint Score</div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="row mb-5">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">📈 Vue d'ensemble des métriques</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="metricsChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">🎯 Score de qualité</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="qualityChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Détails du code source -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">📄 Contenu du Code Source</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <div class="text-center">
+                            <div class="h3 text-primary">{{ source_metrics.files_analyzed|default:0 }}</div>
+                            <div class="text-muted small">Fichiers analysés</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <div class="text-center">
+                            <div class="h3 text-info">{{ source_metrics.total_lines|default:0 }}</div>
+                            <div class="text-muted small">Lignes totales</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <div class="text-center">
+                            <div class="h3 text-success">{{ source_metrics.logical_lines|default:0 }}</div>
+                            <div class="text-muted small">Lignes logiques</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <div class="text-center">
+                            <div class="h3 text-warning">{{ source_metrics.comments|default:0 }}</div>
+                            <div class="text-muted small">Commentaires</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Ratio de commentaires vs Lignes de code</h6>
+                        <div class="chart-container" style="position: relative; height: 200px;">
+                            <canvas id="commentCodeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recommandations -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">💡 Recommandations</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if evaluation.maintainability_index < 65 %}
+                    <div class="col-md-6 mb-3">
+                        <div class="alert alert-warning">
+                            <strong>⚠️ Maintenabilité faible</strong><br>
+                            Votre code a un indice de maintenabilité de {{ evaluation.maintainability_index|floatformat:1 }}. 
+                            Considérez refactoriser les fonctions complexes.
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if evaluation.complexity > 10 %}
+                    <div class="col-md-6 mb-3">
+                        <div class="alert alert-danger">
+                            <strong>🚨 Complexité élevée</strong><br>
+                            La complexité cyclomatique est de {{ evaluation.complexity|floatformat:1 }}. 
+                            Divisez les fonctions complexes en plus petites unités.
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if evaluation.pylint_score < 7 %}
+                    <div class="col-md-6 mb-3">
+                        <div class="alert alert-info">
+                            <strong>📋 Score Pylint à améliorer</strong><br>
+                            Score actuel: {{ evaluation.pylint_score|floatformat:1 }}/10. 
+                            Suivez les conventions PEP 8 pour améliorer la qualité.
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if source_metrics.comment_ratio < 15 %}
+                    <div class="col-md-6 mb-3">
+                        <div class="alert alert-secondary">
+                            <strong>📝 Documentation insuffisante</strong><br>
+                            Seulement {{ source_metrics.comment_ratio|floatformat:1 }}% de commentaires. 
+                            Ajoutez plus de documentation à votre code.
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // === Graphique Radar : Vue d'ensemble des métriques ===
+    const ctx1 = document.getElementById('metricsChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'radar',
+        data: {
+            labels: [
+                'Maintenabilité',
+                'Qualité (Pylint)',
+                'Complexité (inv.)',
+                'Cohésion (LCOM4)',
+                'Bugs (inv.)'
+            ],
+            datasets: [{
+                label: 'Métriques',
+                data: [
+                    {{ evaluation.maintainability_index|default:0 }},
+                    {{ evaluation.pylint_score|mul:10|default:0 }},
+                    Math.max(0, Math.min(100, 100 - ({{ evaluation.complexity|default:1 }} - 1) * 10)),
+                    Math.max(0, Math.min(100, 100 - {{ evaluation.lcom4|default:0 }} * 50)),
+                    Math.max(0, Math.min(100, 100 - {{ evaluation.bugs_probability|default:0 }} * 100))
+                ],
+                backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(102, 126, 234, 1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        stepSize: 20
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // === Graphique Donut : Score global de qualité ===
+    const ctx2 = document.getElementById('qualityChart').getContext('2d');
+    const overallScore = Math.round(
+        ({{ evaluation.maintainability_index|default:0 }} +
+         {{ evaluation.pylint_score|mul:10|default:0 }} +
+         Math.max(0, Math.min(100, 100 - ({{ evaluation.complexity|default:1 }} - 1) * 10)) +
+         Math.max(0, Math.min(100, 100 - {{ evaluation.lcom4|default:0 }} * 50)) +
+         Math.max(0, Math.min(100, 100 - {{ evaluation.bugs_probability|default:0 }} * 100))) / 5
+    );
+
+    new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: ['Score de Qualité', 'Amélioration Possible'],
+            datasets: [{
+                data: [overallScore, 100 - overallScore],
+                backgroundColor: [
+                    'rgba(102, 126, 234, 0.8)',
+                    'rgba(220, 220, 220, 0.3)'
+                ],
+                borderColor: [
+                    'rgba(102, 126, 234, 1)',
+                    'rgba(220, 220, 220, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        },
+        plugins: [{
+            beforeDraw: function(chart) {
+                const width = chart.width;
+                const height = chart.height;
+                const ctx = chart.ctx;
+
+                ctx.restore();
+                const fontSize = (height / 114).toFixed(2);
+                ctx.font = fontSize + "em sans-serif";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#667eea";
+
+                const text = overallScore + "%";
+                const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                const textY = height / 2;
+
+                ctx.fillText(text, textX, textY);
+                ctx.save();
+            }
+        }]
+    });
+
+    // === Graphique Barres Horizontales Empilées : Ratio Commentaires vs Lignes de Code ===
+    const ctx3 = document.getElementById('commentCodeChart').getContext('2d');
+
+    const commentCount = {{ source_metrics.comments|default:0 }};
+    const logicalLines = {{ source_metrics.logical_lines|default:0 }};
+    const total = commentCount + logicalLines;
+
+    const commentRatio = total > 0 ? (commentCount / total) * 100 : 0;
+    const codeRatio = total > 0 ? (logicalLines / total) * 100 : 0;
+
+    new Chart(ctx3, {
+        type: 'bar',
+        data: {
+            labels: [''],
+            datasets: [
+                {
+                    label: 'Commentaires',
+                    data: [commentRatio],
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    stack: 'Stack 0'
+                },
+                {
+                    label: 'Lignes de code',
+                    data: [-codeRatio],
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    stack: 'Stack 0'
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true,
+                    ticks: {
+                        callback: function(value) {
+                            return Math.abs(value) + '%';
+                        },
+                        beginAtZero: true
+                    }
+                },
+                y: {
+                    stacked: true
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + Math.abs(context.raw).toFixed(1) + '%';
+                        }
+                    }
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

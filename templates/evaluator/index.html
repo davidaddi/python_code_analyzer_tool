@@ -1,0 +1,235 @@
+{% extends 'evaluator/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+    <!-- Upload ZIP -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h3 class="card-title text-center mb-4">
+                    📁 Upload Fichier ZIP
+                </h3>
+                
+                <form id="upload-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="upload-area" id="upload-area">
+                        <div class="mb-3">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                            <h5>Glissez votre fichier ZIP ici</h5>
+                            <p class="text-muted">ou cliquez pour sélectionner</p>
+                        </div>
+                        
+                        {{ upload_form.zip_file }}
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload me-2"></i>
+                            Analyser le Code
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- GitHub URL -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h3 class="card-title text-center mb-4">
+                    🐙 Dépôt GitHub
+                </h3>
+                
+                <form id="github-form">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="{{ github_form.github_url.id_for_label }}" class="form-label fw-bold">
+                            URL du dépôt GitHub
+                        </label>
+                        {{ github_form.github_url }}
+                        <div class="form-text">
+                            Exemple: https://github.com/username/repository
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fab fa-github me-2"></i>
+                            Analyser le Dépôt
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zone de statut -->
+<div id="status-area" class="d-none">
+    <div class="card">
+        <div class="card-body text-center">
+            <div class="loading-spinner"></div>
+            <h4 class="mt-3">Analyse en cours...</h4>
+            <p class="text-muted" id="status-message">Veuillez patienter pendant que nous analysons votre code.</p>
+            
+            <div class="progress mt-4">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" style="width: 0%" id="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zone d'erreur -->
+<div id="error-area" class="d-none">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Erreur!</h4>
+        <p id="error-message"></p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('upload-form');
+    const githubForm = document.getElementById('github-form');
+    const statusArea = document.getElementById('status-area');
+    const errorArea = document.getElementById('error-area');
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.querySelector('input[type="file"]');
+    
+    // Gestion du drag & drop
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileUpload();
+        }
+    });
+    
+    uploadArea.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', handleFileUpload);
+    
+    function handleFileUpload() {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            if (file.name.endsWith('.zip')) {
+                submitForm(uploadForm, '/upload-zip/');
+            } else {
+                showError('Veuillez sélectionner un fichier ZIP.');
+            }
+        }
+    }
+    
+    // Gestion du formulaire GitHub
+    githubForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitForm(githubForm, '/submit-github/');
+    });
+    
+    function submitForm(form, url) {
+        const formData = new FormData(form);
+        
+        hideError();
+        showStatus('Envoi en cours...');
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus('Analyse démarrée...');
+                checkStatus(data.evaluation_id);
+            } else {
+                showError(data.message || 'Une erreur est survenue.');
+            }
+        })
+        .catch(error => {
+            showError('Erreur de connexion: ' + error.message);
+        });
+    }
+    
+    function checkStatus(evaluationId) {
+        let progress = 0;
+        const progressBar = document.getElementById('progress-bar');
+        const statusMessage = document.getElementById('status-message');
+        
+        const interval = setInterval(() => {
+            fetch(`/check-status/${evaluationId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    progress = Math.min(progress + 10, 90);
+                    progressBar.style.width = progress + '%';
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        progressBar.style.width = '100%';
+                        statusMessage.textContent = 'Analyse terminée! Redirection...';
+                        
+                        setTimeout(() => {
+                            window.location.href = `/dashboard/${evaluationId}/`;
+                        }, 1500);
+                        
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        showError(data.error || 'L\'analyse a échoué.');
+                        
+                    } else {
+                        statusMessage.textContent = 'Analyse du code en cours...';
+                    }
+                })
+                .catch(error => {
+                    clearInterval(interval);
+                    showError('Erreur lors de la vérification du statut.');
+                });
+        }, 2000);
+    }
+    
+    function showStatus(message) {
+        statusArea.classList.remove('d-none');
+        statusArea.classList.add('fade-in');
+        errorArea.classList.add('d-none');
+        
+        document.getElementById('status-message').textContent = message;
+        document.getElementById('progress-bar').style.width = '0%';
+    }
+    
+    function showError(message) {
+        errorArea.classList.remove('d-none');
+        errorArea.classList.add('fade-in');
+        statusArea.classList.add('d-none');
+        
+        document.getElementById('error-message').textContent = message;
+    }
+    
+    function hideError() {
+        errorArea.classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

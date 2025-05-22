@@ -1,0 +1,28 @@
+# Environnement virtuel
+.venv/
+venv/
+
+# Fichier de base de données SQLite
+db.sqlite3
+
+# Fichiers temporaires de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Fichiers de logs
+*.log
+
+# Fichiers de test
+.coverage
+.tox/
+.noseids
+.pytest_cache/
+
+# IDEs et éditeurs
+.vscode/
+.idea/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
