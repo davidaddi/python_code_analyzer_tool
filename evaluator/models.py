@@ -27,6 +27,7 @@ class EvaluationResult(models.Model):
     halstead_volume = models.FloatField(null=True, blank=True)
     lcom4 = models.FloatField(null=True, blank=True)
     complexity = models.FloatField(null=True, blank=True)
+    code_structure = models.TextField(null=True, blank=True)  # JSON pour stocker la structure
 
     # Contenu du code source (JSON)
     source_metrics = models.TextField(null=True, blank=True)  # JSON des métriques détaillées
@@ -43,6 +44,16 @@ class EvaluationResult(models.Model):
         if self.source_metrics:
             return json.loads(self.source_metrics)
         return {}
+    
+    def get_code_structure(self):
+        """Retourne la structure du code sous forme de dictionnaire."""
+        if self.code_structure:
+            return json.loads(self.code_structure)
+        return {}
+    
+    def set_code_structure(self, structure_dict):
+        """Définit la structure du code à partir d'un dictionnaire."""
+        self.code_structure = json.dumps(structure_dict)
 
     def set_source_metrics(self, metrics_dict):
         """Définit les métriques source à partir d'un dictionnaire."""

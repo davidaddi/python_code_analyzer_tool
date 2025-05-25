@@ -11,6 +11,7 @@ from git import Repo
 from radon.complexity import cc_visit
 from radon.metrics import mi_visit, h_visit
 from radon.raw import analyze
+import ast
 
 
 class CodeEvaluationService:
@@ -19,6 +20,58 @@ class CodeEvaluationService:
     def __init__(self):
         self.temp_dir = None
         self.python_files = []
+
+    def _analyze_code_structure(self) -> Dict[str, int]:
+        """Analyse la structure du code (classes, méthodes, etc.)."""
+        
+        structure_count = {
+            'classes': 0,
+            'methods': 0,
+            'functions': 0,
+            'async_functions': 0,
+            'decorators': 0
+        }
+        
+        class StructureVisitor(ast.NodeVisitor):
+            def __init__(self, counts):
+                self.counts = counts
+                self.current_class = None
+                
+            def visit_ClassDef(self, node):
+                self.counts['classes'] += 1
+                old_class = self.current_class
+                self.current_class = node
+                self.generic_visit(node)
+                self.current_class = old_class
+                
+            def visit_FunctionDef(self, node):
+                if self.current_class is not None:
+                    self.counts['methods'] += 1
+                else:
+                    self.counts['functions'] += 1
+                
+                # Compter les décorateurs
+                self.counts['decorators'] += len(node.decorator_list)
+                self.generic_visit(node)
+                
+            def visit_AsyncFunctionDef(self, node):
+                self.counts['async_functions'] += 1
+                # Compter les décorateurs
+                self.counts['decorators'] += len(node.decorator_list)
+                self.generic_visit(node)
+                
+        for file_path in self.python_files:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    tree = ast.parse(content)
+                    visitor = StructureVisitor(structure_count)
+                    visitor.visit(tree)
+            except Exception as e:
+                print(f"[Structure] Erreur fichier {file_path} : {e}")
+                continue
+                
+        return structure_count
 
     def evaluate_from_zip(self, zip_path: str) -> Dict[str, Any]:
         """Évalue le code à partir d'un fichier ZIP."""
@@ -77,6 +130,7 @@ class CodeEvaluationService:
             'complexity': self._calculate_complexity(),
             'source_metrics': self._calculate_source_metrics(),
             'pylint_score': self._run_pylint(),
+            'code_structure': self._analyze_code_structure(),
         }
 
         return results
@@ -171,8 +225,8 @@ class CodeEvaluationService:
                     if cc_results:
                         total_complexity += sum(block.complexity for block in cc_results)
                         function_count += len(cc_results)
-            except Exception:
-                print(f"[MI] Erreur fichier {file_path} : {e}")
+            except Exception as e:
+                print(f"[Complexity] Erreur fichier {file_path} : {e}")
                 continue
 
         return round(total_complexity / max(function_count, 1), 2)
@@ -194,8 +248,8 @@ class CodeEvaluationService:
                     total_logical_lines += analysis.lloc
                     total_comments += analysis.comments
                     total_blank_lines += analysis.blank
-            except Exception:
-                print(f"[MI] Erreur fichier {file_path} : {e}")
+            except Exception as e:
+                print(f"[Source Metrics] Erreur fichier {file_path} : {e}")
                 continue
 
         comment_ratio = (total_comments / max(total_lines, 1)) * 100

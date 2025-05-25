@@ -2,380 +2,816 @@
 {% load math_filters %}
 {% block title %}Dashboard - Résultats d'Analyse{% endblock %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+{% block sidebar %}
+<aside class="sidebar-left">
+    <h4><i class="fas fa-tools me-2"></i>Outils d'Analyse</h4>
+    <nav>
+        <ul>
+            <li><a href="#"><i class="fas fa-code"></i>Code Sniffer</a></li>
+            <li><a href="#"><i class="fas fa-copy"></i>Copy Paste Detector</a></li>
+            <li><a href="#"><i class="fas fa-chart-line"></i>Python Metrics</a></li>
+            <li><a href="#"><i class="fas fa-project-diagram"></i>PyDepends</a></li>
+            <li><a href="#"><i class="fas fa-bug"></i>Bug Detector</a></li>
+            <li><a href="#"><i class="fas fa-shield-alt"></i>Security Check</a></li>
+            <li><a href="#"><i class="fas fa-performance"></i>Performance</a></li>
+            <li><a href="#"><i class="fas fa-file-export"></i>Export Report</a></li>
+        </u>
+    </nav>
+</aside>
+{% endblock %}
+
+{% block chat %}
+<aside class="sidebar-right">
+    <div class="chat-header">
+        <i class="fas fa-robot me-2"></i>Assistant IA
+    </div>
+    <div class="chat-messages">
+        <div class="chat-message"><strong>Assistant :</strong> Analyse disponible !</div>
+    </div>
+    <div class="chat-input">
+        <input type="text" placeholder="Posez votre question...">
+    </div>
+</aside>
+{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
+
+
+<main class="dashboard-main">
+    <!-- Header principal -->
+    <div class="main-header">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h2 class="text-primary mb-2">📊 Dashboard d'Analyse</h2>
-                <p class="text-muted">
-                    {% if evaluation.source_type == 'github' %}
-                        <i class="fab fa-github me-2"></i>{{ evaluation.source_path }}
-                    {% else %}
-                        <i class="fas fa-file-archive me-2"></i>Fichier ZIP uploadé
-                    {% endif %}
-                </p>
-            </div>
-            <div>
-                <a href="{% url 'evaluator:index' %}" class="btn btn-outline-primary">
-                    <i class="fas fa-arrow-left me-2"></i>Nouvelle Analyse
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Métriques principales -->
-<div class="row mb-5">
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
-        <div class="metric-card">
-            <div class="metric-value">{{ evaluation.maintainability_index|floatformat:1 }}</div>
-            <div class="metric-label">Maintainability Index</div>
-        </div>
-    </div>
-    
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
-        <div class="metric-card">
-            <div class="metric-value">{{ evaluation.bugs_probability|floatformat:2 }}</div>
-            <div class="metric-label">Bugs Probability</div>
-        </div>
-    </div>
-    
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
-        <div class="metric-card">
-            <div class="metric-value">{{ evaluation.halstead_volume|floatformat:0 }}</div>
-            <div class="metric-label">Halstead Volume</div>
-        </div>
-    </div>
-    
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
-        <div class="metric-card">
-            <div class="metric-value">{{ evaluation.lcom4|floatformat:2 }}</div>
-            <div class="metric-label">LCOM4</div>
-        </div>
-    </div>
-    
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
-        <div class="metric-card">
-            <div class="metric-value">{{ evaluation.complexity|floatformat:1 }}</div>
-            <div class="metric-label">Complexity</div>
-        </div>
-    </div>
-    
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
-        <div class="metric-card">
-            <div class="metric-value">{{ evaluation.pylint_score|floatformat:1 }}/10</div>
-            <div class="metric-label">Pylint Score</div>
-        </div>
-    </div>
-</div>
-
-<!-- Graphiques -->
-<div class="row mb-5">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">📈 Vue d'ensemble des métriques</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="metricsChart" width="400" height="300"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">🎯 Score de qualité</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="qualityChart" width="400" height="300"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Détails du code source -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">📄 Contenu du Code Source</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 col-sm-6 mb-3">
-                        <div class="text-center">
-                            <div class="h3 text-primary">{{ source_metrics.files_analyzed|default:0 }}</div>
-                            <div class="text-muted small">Fichiers analysés</div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 col-sm-6 mb-3">
-                        <div class="text-center">
-                            <div class="h3 text-info">{{ source_metrics.total_lines|default:0 }}</div>
-                            <div class="text-muted small">Lignes totales</div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 col-sm-6 mb-3">
-                        <div class="text-center">
-                            <div class="h3 text-success">{{ source_metrics.logical_lines|default:0 }}</div>
-                            <div class="text-muted small">Lignes logiques</div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-3 col-sm-6 mb-3">
-                        <div class="text-center">
-                            <div class="h3 text-warning">{{ source_metrics.comments|default:0 }}</div>
-                            <div class="text-muted small">Commentaires</div>
-                        </div>
-                    </div>
+                <h2><i class="fas fa-chart-pie me-3"></i>Dashboard d'Analyse</h2>
+                <div class="source-info">
+                    <p class="text-muted">
+                        {% if evaluation.source_type == 'github' %}
+                            <i class="fab fa-github me-2"></i>{{ evaluation.source_path }}
+                        {% else %}
+                            <i class="fas fa-file-archive me-2"></i>Fichier ZIP uploadé
+                        {% endif %}
+                    </p>
                 </div>
-                
-                <hr>
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Ratio de commentaires vs Lignes de code</h6>
-                        <div class="chart-container" style="position: relative; height: 200px;">
-                            <canvas id="commentCodeChart"></canvas>
-                        </div>
-                    </div>
+            </div>
+            <button class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-arrow-left me-2"></i>Nouvelle Analyse
+            </button>
+        </div>
+    </div>
+
+    <!-- Métriques principales -->
+    <div class="row mb-5">
+        <!-- Première ligne -->
+        <div class="col-md-4 mb-4">
+            <div class="metric-card">
+                <div class="metric-title">Maintainability Index</div>
+                <div class="metric-value">{{ evaluation.maintainability_index|floatformat:1 }}</div>
+                <div class="metric-label">Should stay between <b>0 and 1</b>.</div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="metric-card">
+                <div class="metric-title">Bugs Probability</div>
+                <div class="metric-value">{{ evaluation.bugs_probability|floatformat:2 }}</div>
+                <div class="metric-label">Must be <b>the closest to 0</b>.</div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="metric-card">
+                <div class="metric-title">Halstead Volume</div>
+                <div class="metric-value">{{ evaluation.halstead_volume|floatformat:0 }}</div>
+                <div class="metric-label">Must stay <b>below 100</b>.</div>
+            </div>
+        </div>
+
+        <!-- Deuxième ligne -->
+        <div class="col-md-4 mb-4">
+            <div class="metric-card">
+                <div class="metric-title">LCOM4</div>
+                <div class="metric-value">{{ evaluation.lcom4|floatformat:2 }}</div>
+                <div class="metric-label">Must stay <b>between 0 and 1</b>.</div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="metric-card">
+                <div class="metric-title">Complexity</div>
+                <div class="metric-value">{{ evaluation.complexity|floatformat:1 }}</div>
+                <div class="metric-label">Must hit <b>the lower possible</b>.</div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="metric-card">
+                <div class="metric-label">Pylint Score</div>
+                <div class="metric-value">{{ evaluation.pylint_score|floatformat:1 }}/10</div>
+                <div class="metric-label">Must hit <b>the closest to 10</b>.</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Graphiques -->
+    <div class="row mb-5">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">📈 Vue d'ensemble des métriques</h5>
+                </div>
+                <div class="card-body">
+                    <div id="metricsChart" style="height:325px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">🏗️ Structure du Code</h5>
+                </div>
+                <div class="card-body">
+                    <div id="codeStructureChart" style="height:325px; width:100%;"></div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Recommandations -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">💡 Recommandations</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% if evaluation.maintainability_index < 65 %}
-                    <div class="col-md-6 mb-3">
-                        <div class="alert alert-warning">
-                            <strong>⚠️ Maintenabilité faible</strong><br>
-                            Votre code a un indice de maintenabilité de {{ evaluation.maintainability_index|floatformat:1 }}. 
-                            Considérez refactoriser les fonctions complexes.
+    <!-- Détails du code source -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">📄 Contenu du Code Source</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="text-center">
+                                <div class="h3 text-primary">{{ source_metrics.files_analyzed|default:0 }}</div>
+                                <div class="text-muted small">Fichiers analysés</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="text-center">
+                                <div class="h3 text-info">{{ source_metrics.total_lines|default:0 }}</div>
+                                <div class="text-muted small">Lignes totales</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="text-center">
+                                <div class="h3 text-success">{{ source_metrics.logical_lines|default:0 }}</div>
+                                <div class="text-muted small">Lignes logiques</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="text-center">
+                                <div class="h3 text-warning">{{ source_metrics.comments|default:0 }}</div>
+                                <div class="text-muted small">Commentaires</div>
+                            </div>
                         </div>
                     </div>
-                    {% endif %}
                     
-                    {% if evaluation.complexity > 10 %}
-                    <div class="col-md-6 mb-3">
-                        <div class="alert alert-danger">
-                            <strong>🚨 Complexité élevée</strong><br>
-                            La complexité cyclomatique est de {{ evaluation.complexity|floatformat:1 }}. 
-                            Divisez les fonctions complexes en plus petites unités.
-                        </div>
-                    </div>
-                    {% endif %}
+                    <hr>
                     
-                    {% if evaluation.pylint_score < 7 %}
-                    <div class="col-md-6 mb-3">
-                        <div class="alert alert-info">
-                            <strong>📋 Score Pylint à améliorer</strong><br>
-                            Score actuel: {{ evaluation.pylint_score|floatformat:1 }}/10. 
-                            Suivez les conventions PEP 8 pour améliorer la qualité.
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Ratio de commentaires vs Lignes de code</h6>
+                            <div class="chart-container" style="position: relative; height: 200px;">
+                                <div id="commentCodeChart"></div>
+                            </div>
                         </div>
                     </div>
-                    {% endif %}
-                    
-                    {% if source_metrics.comment_ratio < 15 %}
-                    <div class="col-md-6 mb-3">
-                        <div class="alert alert-secondary">
-                            <strong>📝 Documentation insuffisante</strong><br>
-                            Seulement {{ source_metrics.comment_ratio|floatformat:1 }}% de commentaires. 
-                            Ajoutez plus de documentation à votre code.
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Recommandations -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">💡 Recommandations</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if evaluation.maintainability_index < 65 %}
+                        <div class="col-md-6 mb-3">
+                            <div class="alert alert-warning">
+                                <strong>⚠️ Maintenabilité faible</strong><br>
+                                Votre code a un indice de maintenabilité de {{ evaluation.maintainability_index|floatformat:1 }}. 
+                                Considérez refactoriser les fonctions complexes.
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evaluation.complexity > 10 %}
+                        <div class="col-md-6 mb-3">
+                            <div class="alert alert-danger">
+                                <strong>🚨 Complexité élevée</strong><br>
+                                La complexité cyclomatique est de {{ evaluation.complexity|floatformat:1 }}. 
+                                Divisez les fonctions complexes en plus petites unités.
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evaluation.pylint_score < 7 %}
+                        <div class="col-md-6 mb-3">
+                            <div class="alert alert-info">
+                                <strong>📋 Score Pylint à améliorer</strong><br>
+                                Score actuel: {{ evaluation.pylint_score|floatformat:1 }}/10. 
+                                Suivez les conventions PEP 8 pour améliorer la qualité.
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if source_metrics.comment_ratio < 15 %}
+                        <div class="col-md-6 mb-3">
+                            <div class="alert alert-secondary">
+                                <strong>📝 Documentation insuffisante</strong><br>
+                                Seulement {{ source_metrics.comment_ratio|floatformat:1 }}% de commentaires. 
+                                Ajoutez plus de documentation à votre code.
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // === Graphique Radar : Vue d'ensemble des métriques ===
-    const ctx1 = document.getElementById('metricsChart').getContext('2d');
-    new Chart(ctx1, {
-        type: 'radar',
-        data: {
-            labels: [
-                'Maintenabilité',
-                'Qualité (Pylint)',
-                'Complexité (inv.)',
-                'Cohésion (LCOM4)',
-                'Bugs (inv.)'
-            ],
-            datasets: [{
-                label: 'Métriques',
-                data: [
-                    {{ evaluation.maintainability_index|default:0 }},
-                    {{ evaluation.pylint_score|mul:10|default:0 }},
-                    Math.max(0, Math.min(100, 100 - ({{ evaluation.complexity|default:1 }} - 1) * 10)),
-                    Math.max(0, Math.min(100, 100 - {{ evaluation.lcom4|default:0 }} * 50)),
-                    Math.max(0, Math.min(100, 100 - {{ evaluation.bugs_probability|default:0 }} * 100))
-                ],
-                backgroundColor: 'rgba(102, 126, 234, 0.2)',
-                borderColor: 'rgba(102, 126, 234, 1)',
-                borderWidth: 2,
-                pointBackgroundColor: 'rgba(102, 126, 234, 1)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        stepSize: 20
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'bottom'
-                }
-            }
-        }
-    });
+    const radarLabels = [
+        'Maintenabilité',
+        'Qualité (Pylint)',
+        'Complexité (inv.)',
+        'Cohésion (LCOM4)',
+        'Bugs (inv.)'
+    ];
 
-    // === Graphique Donut : Score global de qualité ===
-    const ctx2 = document.getElementById('qualityChart').getContext('2d');
-    const overallScore = Math.round(
-        ({{ evaluation.maintainability_index|default:0 }} +
-         {{ evaluation.pylint_score|mul:10|default:0 }} +
-         Math.max(0, Math.min(100, 100 - ({{ evaluation.complexity|default:1 }} - 1) * 10)) +
-         Math.max(0, Math.min(100, 100 - {{ evaluation.lcom4|default:0 }} * 50)) +
-         Math.max(0, Math.min(100, 100 - {{ evaluation.bugs_probability|default:0 }} * 100))) / 5
-    );
+    const radarValues = [
+        {{ evaluation.maintainability_index|default:0 }},
+        {{ evaluation.pylint_score|mul:10|default:0 }},
+        Math.max(0, Math.min(100, 100 - ({{ evaluation.complexity|default:1 }} - 1) * 10)),
+        Math.max(0, Math.min(100, 100 - {{ evaluation.lcom4|default:0 }} * 50)),
+        Math.max(0, Math.min(100, 100 - {{ evaluation.bugs_probability|default:0 }} * 100))
+    ];
 
-    new Chart(ctx2, {
-        type: 'doughnut',
-        data: {
-            labels: ['Score de Qualité', 'Amélioration Possible'],
-            datasets: [{
-                data: [overallScore, 100 - overallScore],
-                backgroundColor: [
-                    'rgba(102, 126, 234, 0.8)',
-                    'rgba(220, 220, 220, 0.3)'
-                ],
-                borderColor: [
-                    'rgba(102, 126, 234, 1)',
-                    'rgba(220, 220, 220, 1)'
-                ],
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: {
-                    display: false
-                }
+    // Fermer le polygone en ajoutant le premier point à la fin
+    const closedRadarValues = [...radarValues, radarValues[0]];
+    const closedRadarLabels = [...radarLabels, radarLabels[0]];
+
+    const radarData = [{
+        type: 'scatterpolar',
+        r: closedRadarValues,
+        theta: closedRadarLabels,
+        fill: 'toself',
+        name: 'Métriques',
+        line: { color: '#667eea' },
+        marker: { color: '#667eea' }
+    }];
+
+    const radarLayout = {
+        polar: {
+            radialaxis: {
+                visible: true,
+                range: [0, 100],
+                tickangle: 45,
+                tickfont: { size: 10 }
             }
         },
-        plugins: [{
-            beforeDraw: function(chart) {
-                const width = chart.width;
-                const height = chart.height;
-                const ctx = chart.ctx;
+        showlegend: false,
+        margin: { t: 30, b: 30, l: 30, r: 30 },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)'
+    };
 
-                ctx.restore();
-                const fontSize = (height / 114).toFixed(2);
-                ctx.font = fontSize + "em sans-serif";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = "#667eea";
-
-                const text = overallScore + "%";
-                const textX = Math.round((width - ctx.measureText(text).width) / 2);
-                const textY = height / 2;
-
-                ctx.fillText(text, textX, textY);
-                ctx.save();
-            }
-        }]
-    });
+    Plotly.newPlot('metricsChart', radarData, radarLayout, { responsive: true });
 
     // === Graphique Barres Horizontales Empilées : Ratio Commentaires vs Lignes de Code ===
-    const ctx3 = document.getElementById('commentCodeChart').getContext('2d');
-
-    const commentCount = {{ source_metrics.comments|default:0 }};
     const logicalLines = {{ source_metrics.logical_lines|default:0 }};
-    const total = commentCount + logicalLines;
+    const commentCount = {{ source_metrics.comments|default:0 }};
+    const total = logicalLines + commentCount;
 
-    const commentRatio = total > 0 ? (commentCount / total) * 100 : 0;
-    const codeRatio = total > 0 ? (logicalLines / total) * 100 : 0;
+    if (total > 0) {
+        const codeRatio = (logicalLines / total) * 100;
+        const commentRatio = (commentCount / total) * 100;
 
-    new Chart(ctx3, {
-        type: 'bar',
-        data: {
-            labels: [''],
-            datasets: [
-                {
-                    label: 'Commentaires',
-                    data: [commentRatio],
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    stack: 'Stack 0'
+        const barData = [
+            {
+                x: [commentRatio],
+                y: [''],
+                name: 'Commentaires',
+                orientation: 'h',
+                type: 'bar',
+                marker: {
+                    color: 'rgba(54, 162, 235, 0.7)'
                 },
-                {
-                    label: 'Lignes de code',
-                    data: [-codeRatio],
-                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                    stack: 'Stack 0'
-                }
-            ]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    stacked: true,
-                    ticks: {
-                        callback: function(value) {
-                            return Math.abs(value) + '%';
-                        },
-                        beginAtZero: true
-                    }
-                },
-                y: {
-                    stacked: true
-                }
+                customdata: [commentCount],
+                hovertemplate: 'Commentaires : %{x:.1f}% (%{customdata} lignes)<extra></extra>'
             },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.dataset.label + ': ' + Math.abs(context.raw).toFixed(1) + '%';
-                        }
-                    }
+            {
+                x: [codeRatio],
+                y: [''],
+                name: 'Lignes de code',
+                orientation: 'h',
+                type: 'bar',
+                marker: {
+                    color: 'rgba(255, 99, 132, 0.7)'
                 },
+                customdata: [logicalLines],
+                hovertemplate: 'Lignes de code : %{x:.1f}% (%{customdata} lignes)<extra></extra>'
+            }
+        ];
+
+        const barLayout = {
+            barmode: 'stack',
+            height: 200,
+            margin: { t: 30, b: 30, l: 30, r: 30 },
+            xaxis: {
+                range: [0, 100],
+                ticksuffix: '%',
+            },
+            yaxis: {
+                showticklabels: false
+            },
+            legend: {
+                orientation: 'h',
+                x: 0.5,
+                xanchor: 'center',
+                y: -0.2
+            },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            hovermode: 'closest'
+        };
+
+        Plotly.newPlot('commentCodeChart', barData, barLayout, {
+            responsive: true,
+            displayModeBar: false
+        });
+    }
+
+    // === Graphique en Camembert : Structure du Code ===
+    // Récupération des données de structure depuis le template Django
+    const structureData = {{ code_structure_json|safe }};
+
+    console.log('Structure data:', structureData);
+    console.log('Type:', typeof structureData);
+
+    // Vérifier si nous avons des données valides
+    if (structureData && typeof structureData === 'object') {
+        // Filtrer les valeurs nulles ou zéro
+        const filteredLabels = [];
+        const filteredValues = [];
+        const colors = [
+            '#4C84FF',  // classes
+            '#54D8FF',  // methods
+            '#A4E8F2',  // functions
+            '#FFB946',  // async_functions
+            '#885AF8',  // imports
+            '#FF5E5E'   // decorators
+        ];
+        const filteredColors = [];
+        
+        let colorIndex = 0;
+        for (const [key, value] of Object.entries(structureData)) {
+            if (value > 0) {
+                filteredLabels.push(key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' '));
+                filteredValues.push(value);
+                filteredColors.push(colors[colorIndex % colors.length]);
+            }
+            colorIndex++;
+        }
+        
+        if (filteredValues.length > 0 && filteredValues.some(v => v > 0)) {
+            const pieData = [{
+                values: filteredValues,
+                labels: filteredLabels,
+                type: 'pie',
+                hole: 0.4,
+                marker: {
+                    colors: filteredColors
+                },
+                textinfo: 'label+percent',
+                textposition: 'outside',
+                hovertemplate: '**%{label}** Count: %{value} Percentage: %{percent}'
+            }];
+
+            const pieLayout = {
+                showlegend: true,
                 legend: {
-                    position: 'bottom'
-                }
+                    orientation: 'v',  // Vertical au lieu d'horizontal
+                    x: 1.05,           // Positionné à droite du graphique
+                    xanchor: 'left',   // Ancrage à gauche de la légende
+                    y: 0.5,            // Centré verticalement
+                    yanchor: 'middle'  // Ancrage au milieu verticalement
+                },
+                margin: { t: 40, b: 40, l: 30, r: 150 }, // Marge droite augmentée pour la légende
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            Plotly.newPlot('codeStructureChart', pieData, pieLayout, {
+                responsive: true,
+                displayModeBar: false
+            });
+        } else {
+            document.getElementById('codeStructureChart').innerHTML = 
+                '<div class="text-center text-gray-500">Aucune structure de code détectée</div>';
+        }
+    } else {
+        console.error('Données de structure invalides:', structureData);
+        document.getElementById('codeStructureChart').innerHTML = 
+            '<div class="text-center text-red-500">Erreur lors du chargement des données de structure</div>';
+    }
+});
+
+</script>
+
+<style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            overflow-x: hidden;
+        }
+
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar gauche */
+        .sidebar-left {
+            width: 280px;
+            min-width: 280px;
+            background: #000;
+            color: white;
+            padding: 25px 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar-left h4 {
+            margin-bottom: 30px;
+            font-weight: 600;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar-left nav ul {
+            list-style: none;
+            padding:0; 
+        }
+
+        .sidebar-left nav li {
+            margin-bottom: 8px;
+        }
+
+        .sidebar-left nav a {
+            color: white;
+            text-decoration: none;
+            padding: 15px 10px;
+            display: block;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .sidebar-left nav a i {
+            width: 20px;
+            margin-right: 12px;
+        }
+
+        /* Contenu principal - plus large */
+        .dashboard-main {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            max-width: calc(100vw - 580px); /* 280px sidebar gauche + 300px sidebar droite */
+        }
+
+        /* Sidebar droite - Chat */
+        .sidebar-right {
+            width: 320px;
+            min-width: 320px;
+            background: white;
+            border-left: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: #000;
+            color: white;
+            font-weight: 600;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(100vh - 140px);
+        }
+
+        .chat-message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #667eea;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .chat-message strong {
+            color: #667eea;
+        }
+
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .chat-input input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Header principal */
+        .main-header {
+            background: white;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(84, 72, 49, 0.08) 0px 0px 0px 1px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .main-header h2 {
+            color: #2d3748;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .source-info {
+            color: #6c757d;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            padding-top: 15px;
+            padding-left: 10px;
+        }
+
+        .source-info i {
+            margin-right: 10px;
+            color: #000;
+        }
+
+        /* Cartes métriques améliorées */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            text-decoration: none;
+            background-color: #fff;
+            cursor: pointer;
+            border-radius: 10px;
+            position: static;
+            overflow: hidden;
+            margin-bottom: 8px;
+            box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(84, 72, 49, 0.08) 0px 0px 0px 1px;
+            height: 100%;
+            min-height: 40px;
+            text-align: left;
+            padding: 10px 0 5px 15px;
+        }
+
+        .metric-title {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 15px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-label {
+            font-size: 13px;
+            color: #718096;
+            line-height: 1.4;
+        }
+
+        /* Cards graphiques */
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(84, 72, 49, 0.08) 0px 0px 0px 1px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .chart-card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .chart-card-body {
+            padding: 30px;
+        }
+
+        /* Graphiques en grille */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        /* Section détails code source */
+        .code-details {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .code-details h5 {
+            color: #2d3748;
+            font-weight: 600;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            box-shadow: rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(84, 72, 49, 0.08) 0px 0px 0px 1px;
+        }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .text-primary { color: #667eea !important; }
+        .text-info { color: #17a2b8 !important; }
+        .text-success { color: #28a745 !important; }
+        .text-warning { color: #ffc107 !important; }
+
+        /* Recommandations */
+        .recommendations {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .recommendations h5 {
+            color: #2d3748;
+            font-weight: 600;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f4;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-warning {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        .alert-secondary {
+            background-color: #f8f9fa;
+            border-left-color: #6c757d;
+            color: #383d41;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             }
         }
-    });
-});
-</script>
+
+        @media (max-width: 768px) {
+            .dashboard-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .sidebar-left,
+            .sidebar-right {
+                width: 100%;
+                min-width: auto;
+            }
+            
+            .dashboard-main {
+                max-width: 100%;
+                padding: 20px;
+            }
+            
+            .sidebar-right {
+                max-height: 400px;
+            }
+        }
+    </style>
+
 {% endblock %}

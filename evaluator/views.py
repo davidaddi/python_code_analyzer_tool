@@ -5,6 +5,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
+import json
 import threading
 from .models import EvaluationResult
 from .forms import CodeUploadForm, GitHubForm
@@ -115,6 +116,7 @@ def check_status(request, evaluation_id):
                 'complexity': evaluation.complexity,
                 'pylint_score': evaluation.pylint_score,
                 'source_metrics': evaluation.get_source_metrics(),
+                'code_structure': evaluation.get_code_structure(),  # Ajouté
             })
         elif evaluation.status == 'failed':
             response_data['error'] = evaluation.error_message
@@ -136,17 +138,35 @@ def dashboard(request, evaluation_id):
         return render(request, 'evaluator/pending.html', {'evaluation': evaluation})
 
     source_metrics = evaluation.get_source_metrics()
+    code_structure = evaluation.get_code_structure()
+
+    # Debug pour vérifier les données
+    print("Debug - Code Structure:", code_structure)
+    print("Debug - Type:", type(code_structure))
+    
+    # S'assurer que code_structure contient des données valides
+    if not code_structure or not isinstance(code_structure, dict):
+        code_structure = {
+            'classes': 0,
+            'methods': 0,
+            'functions': 0,
+            'async_functions': 0,
+            'imports': 0,
+            'decorators': 0
+        }
 
     context = {
         'evaluation': evaluation,
         'source_metrics': source_metrics,
+        'code_structure': code_structure,
+        'code_structure_json': json.dumps(code_structure),  # Version JSON pour le template
     }
 
     return render(request, 'evaluator/dashboard.html', context)
 
 
 def _evaluate_code_async(evaluation_id: int, source_type: str, source_path: str):
-    """Fonction asynchrone pour évaluer le code."""
+    """Évalue le code de manière asynchrone."""
     try:
         evaluation = EvaluationResult.objects.get(id=evaluation_id)
         service = CodeEvaluationService()
@@ -170,6 +190,7 @@ def _evaluate_code_async(evaluation_id: int, source_type: str, source_path: str)
             evaluation.complexity = results.get('complexity')
             evaluation.pylint_score = results.get('pylint_score')
             evaluation.set_source_metrics(results.get('source_metrics', {}))
+            evaluation.set_code_structure(results.get('code_structure', {}))
 
         evaluation.save()
 
